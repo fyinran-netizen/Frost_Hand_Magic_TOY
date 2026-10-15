@@ -56,15 +56,28 @@ function resize() {
   spriteCanvas.width = Math.floor(sceneWidth * dpr);
   spriteCanvas.height = Math.floor(sceneHeight * dpr);
   spriteContext.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const cameraRect = video.getBoundingClientRect();
-  skeletonCanvas.width = Math.floor(cameraRect.width * dpr);
-  skeletonCanvas.height = Math.floor(cameraRect.height * dpr);
+  const skeletonRect = skeletonCanvas.getBoundingClientRect();
+  skeletonCanvas.width = Math.max(1, Math.floor(skeletonRect.width * dpr));
+  skeletonCanvas.height = Math.max(1, Math.floor(skeletonRect.height * dpr));
   skeleton.setTransform(dpr, 0, 0, dpr, 0, 0);
   snowCanvas.width = Math.floor(sceneWidth * dpr);
   snowCanvas.height = Math.floor(sceneHeight * dpr);
   snow.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
-window.addEventListener('resize', resize);
+let resizeFrame = 0;
+function scheduleResize() {
+  cancelAnimationFrame(resizeFrame);
+  resizeFrame = requestAnimationFrame(resize);
+}
+window.addEventListener('resize', scheduleResize);
+window.addEventListener('orientationchange', () => window.setTimeout(scheduleResize, 120));
+window.visualViewport?.addEventListener('resize', scheduleResize);
+if ('ResizeObserver' in window) {
+  const layoutObserver = new ResizeObserver(scheduleResize);
+  layoutObserver.observe(scene);
+  layoutObserver.observe(video);
+  layoutObserver.observe(skeletonCanvas);
+}
 resize();
 
 function setStatus(message, state = '') {
@@ -151,19 +164,40 @@ function mapTip(point) {
 }
 
 function drawSkeleton(hands) {
-  const width = skeletonCanvas.clientWidth;
-  const height = skeletonCanvas.clientHeight;
+  const skeletonRect = skeletonCanvas.getBoundingClientRect();
+  const videoRect = video.getBoundingClientRect();
+  const computedVideo = getComputedStyle(video);
+  const borderLeft = parseFloat(computedVideo.borderLeftWidth) || 0;
+  const borderRight = parseFloat(computedVideo.borderRightWidth) || 0;
+  const borderTop = parseFloat(computedVideo.borderTopWidth) || 0;
+  const borderBottom = parseFloat(computedVideo.borderBottomWidth) || 0;
+  const width = skeletonRect.width;
+  const height = skeletonRect.height;
   skeleton.clearRect(0, 0, width, height);
   if (!hands.length || !video.videoWidth || !video.videoHeight) return;
 
-  const scale = Math.max(width / video.videoWidth, height / video.videoHeight);
+  const videoContentWidth = Math.max(1, videoRect.width - borderLeft - borderRight);
+  const videoContentHeight = Math.max(1, videoRect.height - borderTop - borderBottom);
+  const scale = Math.max(videoContentWidth / video.videoWidth, videoContentHeight / video.videoHeight);
   const renderedWidth = video.videoWidth * scale;
   const renderedHeight = video.videoHeight * scale;
-  const offsetX = (width - renderedWidth) / 2;
-  const offsetY = (height - renderedHeight) / 2;
+  const objectPosition = computedVideo.objectPosition.split(/\s+/);
+  const resolvePosition = (value, axis) => {
+    if (value === 'left' || value === 'top') return 0;
+    if (value === 'right' || value === 'bottom') return 1;
+    if (value === 'center' || !value) return .5;
+    if (value.endsWith('%')) return Math.max(0, Math.min(1, parseFloat(value) / 100));
+    return (parseFloat(value) || 0) / Math.max(1, Math.abs(axis));
+  };
+  const positionX = resolvePosition(objectPosition[0], videoContentWidth - renderedWidth);
+  const positionY = resolvePosition(objectPosition[1] || 'center', videoContentHeight - renderedHeight);
+  const objectOffsetX = (videoContentWidth - renderedWidth) * positionX;
+  const objectOffsetY = (videoContentHeight - renderedHeight) * positionY;
+  const localVideoOffsetX = videoRect.left + borderLeft - skeletonRect.left;
+  const localVideoOffsetY = videoRect.top + borderTop - skeletonRect.top;
   const point = (landmark) => ({
-    x: offsetX + (video.videoWidth - landmark.x * video.videoWidth) * scale,
-    y: offsetY + landmark.y * video.videoHeight * scale,
+    x: localVideoOffsetX + objectOffsetX + (video.videoWidth - landmark.x * video.videoWidth) * scale,
+    y: localVideoOffsetY + objectOffsetY + landmark.y * video.videoHeight * scale,
   });
 
   skeleton.save();
