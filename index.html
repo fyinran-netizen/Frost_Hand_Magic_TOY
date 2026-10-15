@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#07111f" />
+    <title>Frost · Hand Magic</title>
+  </head>
+  <body>
+    <main class="scene">
+      <canvas id="snow" aria-hidden="true"></canvas>
+      <video id="camera" autoplay muted playsinline aria-label="Mirrored camera preview"></video>
+      <canvas id="sprite" aria-label="Ice sprite"></canvas>
+      <canvas id="skeleton" aria-label="Hand tracking skeleton"></canvas>
+      <canvas id="magic" aria-label="Ice magic particle trail"></canvas>
+      <div class="vignette" aria-hidden="true"></div>
+      <div class="ui">
+        <div class="topline"><span id="status" class="status" data-state="idle">Camera off</span></div>
+        <div class="center">
+          <div class="welcome">
+            <p>Allow camera access to begin</p>
+            <button id="cameraButton" class="camera-button" type="button">Enable camera</button>
+          </div>
+        </div>
+        <p id="hint" class="hint">Move your index finger to draw light</p>
+      </div>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
